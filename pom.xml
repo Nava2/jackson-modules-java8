@@ -17,6 +17,7 @@
     <module>parameter-names</module>
     <module>datatypes</module>
     <module>datetime</module>
+    <module>javafx</module>
   </modules>
 
   <url>https://github.com/FasterXML/jackson-modules-java8</url>
