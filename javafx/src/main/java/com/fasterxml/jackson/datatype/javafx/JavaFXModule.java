@@ -27,6 +27,9 @@ public class JavaFXModule extends SimpleModule {
         context.addSerializers(new JavaFXSerializers());
         context.addDeserializers(new JavaFXDeserializers());
         context.addTypeModifier(new JavaFXTypeModifier());
+
+        context.insertAnnotationIntrospector(new JavaFXAnnotationIntrospector());
+        context.setClassIntrospector(new JavaFXClassIntrospector());
     }
 
     abstract class ReadOnlyPropertyMixin<E> {
