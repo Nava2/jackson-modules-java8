@@ -1,13 +1,12 @@
 package com.fasterxml.jackson.datatype.javafx;
 
 import com.fasterxml.jackson.databind.AnnotationIntrospector;
-import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.PropertyName;
 import com.fasterxml.jackson.databind.cfg.MapperConfig;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMethod;
 import com.fasterxml.jackson.databind.introspect.POJOPropertyBuilder;
-import javafx.beans.property.ReadOnlyProperty;
+import com.fasterxml.jackson.datatype.javafx.util.JavaFXBeanUtil;
 
 /**
  * Created by kevin on 19/05/2017.
@@ -27,14 +26,10 @@ public class JavaFXPOJOPropertyBuilder extends POJOPropertyBuilder {
     protected JavaFXPOJOPropertyBuilder(POJOPropertyBuilder src, PropertyName newName) {
         super(src, newName);
     }
-
-    protected static boolean _isTypeReadOnlyProperty(JavaType type) {
-        return type.isTypeOrSubTypeOf(ReadOnlyProperty.class);
-    }
-
+    
     public boolean isJavaFXProperty() {
         return hasJavaFxPropertyAccessor()
-                || (hasField() && _isTypeReadOnlyProperty(_fields.value.getType()));
+                || (hasField() && JavaFXBeanUtil.isTypeJavaFXReadOnlyProperty(_fields.value.getType()));
     }
 
     public boolean hasJavaFxPropertyAccessor() {
@@ -46,13 +41,13 @@ public class JavaFXPOJOPropertyBuilder extends POJOPropertyBuilder {
     }
 
     public AnnotatedMember getJavaFxProperty() {
-        return _propertyAccessors.value;
+        return _propertyAccessors != null ? _propertyAccessors.value : null;
     }
 
     public AnnotatedMethod getJavaFxPropertyAccessor()
     {
         // Easy with zero or one getters...
-        Linked<AnnotatedMethod> curr = _getters;
+        Linked<AnnotatedMethod> curr = _propertyAccessors;
         if (curr == null) {
             return null;
         }
@@ -76,26 +71,16 @@ public class JavaFXPOJOPropertyBuilder extends POJOPropertyBuilder {
                     continue;
                 }
             }
-            /* 30-May-2014, tatu: Three levels of precedence:
-             *
-             * 1. Regular getters ("getX")
-             * 2. Is-getters ("isX")
-             * 3. Implicit, possible getters ("x")
-             */
-            int priNext = _getterPriority(next.value);
-            int priCurr = _getterPriority(curr.value);
-
-            if (priNext != priCurr) {
-                if (priNext < priCurr) {
-                    curr = next;
-                }
-                continue;
-            }
-            throw new IllegalArgumentException("Conflicting getter definitions for property \""+getName()+"\": "
-                    +curr.value.getFullName()+" vs "+next.value.getFullName());
+    
+            // While getters have precedence concerns about multiple ways to specify,
+            // this capability isn't a problem for Properties as they are only defined via the
+            // suffix "Property"
+            throw new IllegalArgumentException("Conflicting accessor definitions for property \"" + getName() + "\": "
+                    + curr.value.getFullName() + " vs " + next.value.getFullName());
         }
+        
         // One more thing; to avoid having to do it again...
-        _getters = curr.withoutNext();
+        _propertyAccessors = _propertyAccessors.withoutNext();
         return curr.value;
     }
 }

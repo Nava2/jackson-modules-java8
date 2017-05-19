@@ -2,14 +2,20 @@ package com.fasterxml.jackson.datatype.javafx;
 
 import com.fasterxml.jackson.databind.AnnotationIntrospector;
 import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.PropertyName;
 import com.fasterxml.jackson.databind.cfg.MapperConfig;
-import com.fasterxml.jackson.databind.introspect.*;
+import com.fasterxml.jackson.databind.introspect.AnnotatedClass;
+import com.fasterxml.jackson.databind.introspect.AnnotatedMethod;
+import com.fasterxml.jackson.databind.introspect.POJOPropertiesCollector;
+import com.fasterxml.jackson.databind.introspect.POJOPropertyBuilder;
 import com.fasterxml.jackson.datatype.javafx.util.JavaFXBeanUtil;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
+
+import static com.fasterxml.jackson.datatype.javafx.util.JavaFXBeanUtil.isTypeJavaFXReadOnlyProperty;
 
 /**
  * Created by kevin on 19/05/2017.
@@ -37,13 +43,60 @@ public class JavaFXPOJOPropertiesCollector extends POJOPropertiesCollector {
 
         if (!_collected) {
             super.collectAll();
+            
+            
+            
 
             _getPropertiesBuilderMap().values().stream()
                     .forEach(bld -> {
-
+                        
+                        
+                        
                         System.out.println(bld.getFullName());
                     });
         }
+    }
+    
+    protected boolean _shouldPruneFinalFields() {
+        return !_forSerialization && !_config.isEnabled(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS);
+    }
+    
+    @Override
+    protected void _addMethods(Map<String, POJOPropertyBuilder> props) {
+    
+        AnnotationIntrospector ai = _annotationIntrospector;
+        final boolean pruneFinalFields = _shouldPruneFinalFields();
+        final boolean transientAsIgnoral = _config.isEnabled(MapperFeature.PROPAGATE_TRANSIENT_MARKER);
+    
+        for (AnnotatedMethod m : _classDef.memberMethods()) {
+            /* For methods, handling differs between getters and setters AND ACCESSORS; and
+             * we will also only consider entries that either follow the bean
+             * naming convention or are explicitly marked: just being visible
+             * is not enough (unlike with fields)
+             */
+            int argCount = m.getParameterCount();
+            if (argCount == 0) { // getters or accessors
+                // If the return type is a JavaFX property, try to treat it as an Accessor
+                if (isTypeJavaFXReadOnlyProperty(m.getType())) {
+                    _addJavaFXAccessorMethod(props, m, ai);
+                } else {
+                    // Otherwise, we treat it as a normal getter
+                    _addGetterMethod(props, m, ai);
+                }
+            } else if (argCount == 1) { // setters
+                _addSetterMethod(props, m, ai);
+            } else if (argCount == 2) { // any getter?
+                if (ai != null) {
+                    if (Boolean.TRUE.equals(ai.hasAnySetter(m))) {
+                        if (_anySetters == null) {
+                            _anySetters = new LinkedList<AnnotatedMethod>();
+                        }
+                        _anySetters.add(m);
+                    }
+                }
+            }
+        }
+        
     }
 
     protected void _addJavaFXAccessorMethod(Map<String, POJOPropertyBuilder> props,
@@ -59,7 +112,7 @@ public class JavaFXPOJOPropertiesCollector extends POJOPropertiesCollector {
         // @JsonAnyGetter?
         if (Boolean.TRUE.equals(ai.hasAnyGetter(m))) {
             if (_anyGetters == null) {
-                _anyGetters = new LinkedList<AnnotatedMember>();
+                _anyGetters = new LinkedList<>();
             }
             _anyGetters.add(m);
             return;
@@ -73,8 +126,7 @@ public class JavaFXPOJOPropertiesCollector extends POJOPropertiesCollector {
             _jsonValueAccessors.add(m);
             return;
         }
-
-
+        
         PropertyName pn = ai.findNameForSerialization(m);
         boolean nameExplicit = (pn != null);
 
@@ -105,9 +157,9 @@ public class JavaFXPOJOPropertiesCollector extends POJOPropertiesCollector {
             }
             visible = true;
         }
-
+        
         boolean ignore = ai.hasIgnoreMarker(m);
-        _property(props, pn).addJavaFXPropertyAccessor(m, pn, nameExplicit, visible, ignore);
+        _property(props, implName).addJavaFXPropertyAccessor(m, pn, nameExplicit, visible, ignore);
     }
 
     protected JavaFXPOJOPropertyBuilder _constructPropertyBuilder(MapperConfig<?> config, AnnotationIntrospector ai,
@@ -123,7 +175,7 @@ public class JavaFXPOJOPropertiesCollector extends POJOPropertiesCollector {
     }
 
     @Deprecated @Override
-    protected POJOPropertyBuilder _property(Map<String, POJOPropertyBuilder> props,
+    protected JavaFXPOJOPropertyBuilder _property(Map<String, POJOPropertyBuilder> props,
                                             String implName)
     {
         return _property(props, PropertyName.construct(implName));

@@ -1,7 +1,9 @@
 package com.fasterxml.jackson.datatype.javafx.util;
 
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMethod;
 import com.fasterxml.jackson.databind.util.BeanUtil;
+import javafx.beans.property.ReadOnlyProperty;
 
 /**
  * Add more utility functionality on top of the shipped {@link BeanUtil} to add
@@ -28,5 +30,9 @@ public class JavaFXBeanUtil extends BeanUtil {
      */
     protected static String stdMangleJavaFXProperty(String baseName) {
         return baseName.substring(0, baseName.length() - JAVAFX_PROPERTY_STD_SUFFIX.length());
+    }
+    
+    public static boolean isTypeJavaFXReadOnlyProperty(JavaType type) {
+        return type.isTypeOrSubTypeOf(ReadOnlyProperty.class);
     }
 }
