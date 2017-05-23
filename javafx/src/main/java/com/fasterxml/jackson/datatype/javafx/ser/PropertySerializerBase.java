@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.ser.ContextualSerializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.databind.type.ReferenceType;
+import javafx.beans.property.Property;
 import javafx.beans.property.ReadOnlyProperty;
 
 import java.io.IOException;
@@ -17,8 +18,8 @@ import java.io.IOException;
 /**
  * Provides a {@link JsonSerializer} for {@link ReadOnlyProperty} values.
  */
-public class ReadOnlyPropertySerializer<T>
-        extends StdSerializer<ReadOnlyProperty<T>>
+abstract class PropertySerializerBase<T, P extends Property<T>>
+        extends StdSerializer<P>
         implements ContextualSerializer {
 
     public static final String PROPERTY_NAME = "name";
@@ -32,16 +33,16 @@ public class ReadOnlyPropertySerializer<T>
     protected final TypeSerializer _typeSer;
     protected final JsonSerializer<Object> _valueSer;
 
-    public ReadOnlyPropertySerializer(ReferenceType type,
-                                      TypeSerializer typeDeser,
-                                      JsonSerializer<?> valueDeser) {
+    protected PropertySerializerBase(ReferenceType type,
+                                     TypeSerializer typeDeser,
+                                     JsonSerializer<?> valueDeser) {
         this(type, typeDeser, valueDeser, null);
     }
 
-    protected ReadOnlyPropertySerializer(ReferenceType type,
-                                         TypeSerializer typeDeser,
-                                         JsonSerializer<?> valueDeser,
-                                         BeanProperty property) {
+    protected PropertySerializerBase(ReferenceType type,
+                                     TypeSerializer typeDeser,
+                                     JsonSerializer<?> valueDeser,
+                                     BeanProperty property) {
         super(type);
 
         this._refType = type;
@@ -50,12 +51,10 @@ public class ReadOnlyPropertySerializer<T>
         this._property = property;
     }
 
-    protected JsonSerializer<?> withResolved(TypeSerializer typeSer,
-                                             JsonSerializer<?> ser,
-                                             SerializerProvider prov,
-                                             BeanProperty property) {
-        return new ReadOnlyPropertySerializer<>(_refType, typeSer, ser, property);
-    }
+    protected abstract JsonSerializer<?> withResolved(TypeSerializer typeSer,
+                                                      JsonSerializer<?> ser,
+                                                      SerializerProvider prov,
+                                                      BeanProperty property);
 
     @Override
     public JsonSerializer<?> createContextual(SerializerProvider prov, BeanProperty property) throws JsonMappingException {
@@ -78,18 +77,18 @@ public class ReadOnlyPropertySerializer<T>
         return withResolved(typeSer, valueSer, prov, property);
     }
 
+    protected abstract void serializeValue(P value, JsonGenerator gen, SerializerProvider provider) throws IOException;
+
     @Override
-    public void serialize(ReadOnlyProperty<T> value, JsonGenerator gen, SerializerProvider provider) throws IOException, JsonProcessingException {
-
-
+    public void serialize(P value, JsonGenerator gen, SerializerProvider provider) throws IOException, JsonProcessingException {
         gen.writeStartObject();
+
+        if (gen.canWriteObjectId()) {
+            //gen.writeObjectId(provider.findObjectId(value, ));
+        }
 
         if (gen.canWriteTypeId()) {
             gen.writeTypeId(value);
-        }
-
-        if (gen.canWriteObjectId()) {
-            gen.writeObjectId(_typeSer.getTypeIdResolver().idFromValue(value));
         }
 
         if (value.getName() != null) {
@@ -98,22 +97,7 @@ public class ReadOnlyPropertySerializer<T>
             gen.writeNullField(PROPERTY_NAME);
         }
 
-        if (value.getValue() != null) {
-
-            gen.writeFieldName(PROPERTY_VALUE);
-
-            JsonSerializer<Object> ser = _valueSer;
-            if (ser == null) {
-                ser = provider.findTypedValueSerializer(_refType.getContentType(), true, _property);
-            }
-            if (_typeSer != null) {
-                ser.serializeWithType(value.getValue(), gen, provider, _typeSer);
-            } else {
-                ser.serialize(value.getValue(), gen, provider);
-            }
-        } else {
-            gen.writeNullField(PROPERTY_VALUE);
-        }
+        serializeValue(value, gen, provider);
 
         gen.writeEndObject();
     }

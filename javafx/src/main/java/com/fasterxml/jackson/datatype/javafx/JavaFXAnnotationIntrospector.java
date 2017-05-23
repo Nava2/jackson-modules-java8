@@ -1,10 +1,10 @@
 package com.fasterxml.jackson.datatype.javafx;
 
-import com.fasterxml.jackson.annotation.*;
-import com.fasterxml.jackson.databind.introspect.Annotated;
-import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
-import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.introspect.*;
 import javafx.beans.property.ReadOnlyProperty;
+import javafx.beans.value.ObservableValue;
 
 import java.lang.annotation.Annotation;
 
@@ -13,47 +13,101 @@ import java.lang.annotation.Annotation;
  */
 class JavaFXAnnotationIntrospector extends JacksonAnnotationIntrospector {
 
-    @Override @SuppressWarnings("unchecked")
-    protected <A extends Annotation> A _findAnnotation(Annotated annotated, Class<A> annoClass) {
-        if (annotated.getType().isTypeOrSubTypeOf(ReadOnlyProperty.class)) {
-            // Get the data used for Identity, otherwise we will attach it with the default value.
-            if (annoClass == JsonIdentityInfo.class) {
-                JsonIdentityInfo fromChildren = super._findAnnotation(annotated, JsonIdentityInfo.class);
+    private JsonProperty getJsonProperty(Annotated annotated) {
+        final String name;
+        if (annotated instanceof AnnotatedField) {
+            name = annotated.getName();
+        } else if (annotated instanceof AnnotatedMethod) {
+            name = annotated.getName().substring(0, annotated.getName().length() - "Property".length());
+        } else {
+            // can't handle this
+            return null;
+        }
 
-                if (fromChildren != null) {
-                    return (A)fromChildren;
-                } else {
-                    return (A)new JsonIdentityInfo() {
-
-                        @Override
-                        public Class<? extends Annotation> annotationType() {
-                            return JsonIdentityInfo.class;
-                        }
-
-                        @Override
-                        public String property() {
-                            return "@id";
-                        }
-
-                        @Override
-                        public Class<? extends ObjectIdGenerator<?>> generator() {
-                            // Use UUIDs since Integers may clash later ??
-                            return ObjectIdGenerators.UUIDGenerator.class;
-                        }
-
-                        @Override
-                        public Class<? extends ObjectIdResolver> resolver() {
-                            return SimpleObjectIdResolver.class;
-                        }
-
-                        @Override
-                        public Class<?> scope() {
-                            return Object.class;
-                        }
-                    };
-                }
+        return new JsonProperty() {
+            @Override
+            public Class<? extends Annotation> annotationType() {
+                return JsonProperty.class;
             }
 
+            @Override
+            public String value() {
+                return name;
+            }
+
+            @Override
+            public boolean required() {
+                return true;
+            }
+
+            @Override
+            public int index() {
+                return INDEX_UNKNOWN;
+            }
+
+            @Override
+            public String defaultValue() {
+                return "";
+            }
+
+            @Override
+            public Access access() {
+                return Access.READ_ONLY;
+            }
+        };
+    }
+
+    @Override @SuppressWarnings("unchecked")
+    protected <A extends Annotation> A _findAnnotation(Annotated annotated, Class<A> annoClass) {
+//        if (annotated.getType() != null && annotated.getType().isTypeOrSubTypeOf(ReadOnlyProperty.class)) {
+//            // Get the data used for Identity, otherwise we will attach it with the default value.
+//            if (annoClass == JsonIdentityInfo.class) {
+//                JsonIdentityInfo fromChildren = super._findAnnotation(annotated, JsonIdentityInfo.class);
+//
+//                if (fromChildren != null) {
+//                    return (A)fromChildren;
+//                } else {
+//                    return (A)new JsonIdentityInfo() {
+//
+//                        @Override
+//                        public Class<? extends Annotation> annotationType() {
+//                            return JsonIdentityInfo.class;
+//                        }
+//
+//                        @Override
+//                        public String property() {
+//                            return "@id";
+//                        }
+//
+//                        @Override
+//                        public Class<? extends ObjectIdGenerator<?>> generator() {
+//                            // Use UUIDs since Integers may clash later ??
+//                            return ObjectIdGenerators.UUIDGenerator.class;
+//                        }
+//
+//                        @Override
+//                        public Class<? extends ObjectIdResolver> resolver() {
+//                            return SimpleObjectIdResolver.class;
+//                        }
+//
+//                        @Override
+//                        public Class<?> scope() {
+//                            return Object.class;
+//                        }
+//                    };
+//                }
+//            }
+//
+//        }
+
+        if (annotated.getType() != null && annoClass == JsonProperty.class) {
+            if (annotated.getType().isTypeOrSubTypeOf(ReadOnlyProperty.class)) {
+                if (annotated.hasAnnotation(annoClass)) {
+                    return annotated.getAnnotation(annoClass);
+                } else {
+                    return (A) getJsonProperty(annotated);
+                }
+            }
         }
 
         return super._findAnnotation(annotated, annoClass);
@@ -68,8 +122,19 @@ class JavaFXAnnotationIntrospector extends JacksonAnnotationIntrospector {
         return super._hasAnnotation(annotated, annoClass);
     }
 
+    protected String getPropertyReferenceTag(AnnotatedMember member) {
+        String owningTypeName = member.getDeclaringClass().getName();
+
+        return owningTypeName + "%" + member.getFullName();
+    }
+
     @Override
     public ReferenceProperty findReferenceType(AnnotatedMember member) {
+
+        if (member instanceof AnnotatedField && member.getType().isTypeOrSubTypeOf(ObservableValue.class)) {
+            return ReferenceProperty.managed(getPropertyReferenceTag(member));
+        }
+
         return super.findReferenceType(member);
     }
 }

@@ -14,6 +14,8 @@ import java.lang.reflect.Type;
  */
 public class JavaFXTypeModifier extends TypeModifier
 {
+
+
     @Override
     public JavaType modifyType(JavaType type, Type jdkType, TypeBindings bindings, TypeFactory typeFactory)
     {
@@ -23,7 +25,7 @@ public class JavaFXTypeModifier extends TypeModifier
 
         // Look for Property values
         if (type.isTypeOrSubTypeOf(ObservableValue.class)) {
-            return ReferenceType.upgradeFrom(type, type.containedTypeOrUnknown(0));
+            return ReferenceType.upgradeFrom(type, bindings.getBoundType(0));
         }
 
         return type;
