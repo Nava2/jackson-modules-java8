@@ -1,13 +1,17 @@
 package com.fasterxml.jackson.datatype.javafx.des;
 
-import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.BeanDescription;
+import com.fasterxml.jackson.databind.DeserializationConfig;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.fasterxml.jackson.databind.deser.Deserializers;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import com.fasterxml.jackson.databind.type.MapType;
 import com.fasterxml.jackson.databind.type.ReferenceType;
 import javafx.beans.Observable;
-import javafx.beans.property.ReadOnlyProperty;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ObservableList;
 import javafx.collections.ObservableMap;
@@ -25,19 +29,14 @@ public class JavaFXDeserializers extends Deserializers.Base {
                                                          TypeDeserializer contentTypeDeserializer,
                                                          JsonDeserializer<?> contentDeserializer) throws JsonMappingException {
         if (refType.isTypeOrSubTypeOf(ObservableValue.class)) {
-            if (refType.isTypeOrSubTypeOf(ReadOnlyProperty.class)) {
-
+            if (refType.isTypeOrSubTypeOf(ObjectProperty.class)) {
+                return new ObjectPropertyDeserializer(refType, contentTypeDeserializer, contentDeserializer);
             }
         }
 
         return null;
     }
-
-    @Override
-    public JsonDeserializer<?> findBeanDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) throws JsonMappingException {
-        return super.findBeanDeserializer(type, config, beanDesc);
-    }
-
+    
     @Override
     public JsonDeserializer<?> findCollectionDeserializer(CollectionType type,
                                                           DeserializationConfig config,

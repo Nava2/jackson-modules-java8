@@ -1,5 +1,6 @@
 package com.fasterxml.jackson.datatype.javafx;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,6 +20,7 @@ public class Scratch {
 
         private final ObjectProperty<Bar> bar;
 
+        @JsonCreator
         public Foo(@JsonProperty("bar") Bar bar) {
             this.bar = new SimpleObjectProperty<>(this, "bar", bar);
         }
