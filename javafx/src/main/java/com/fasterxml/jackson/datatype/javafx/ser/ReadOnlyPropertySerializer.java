@@ -88,6 +88,10 @@ public class ReadOnlyPropertySerializer<T>
             gen.writeTypeId(value);
         }
 
+        if (gen.canWriteObjectId()) {
+            gen.writeObjectId(_typeSer.getTypeIdResolver().idFromValue(value));
+        }
+
         if (value.getName() != null) {
             gen.writeStringField(PROPERTY_NAME, value.getName());
         } else {

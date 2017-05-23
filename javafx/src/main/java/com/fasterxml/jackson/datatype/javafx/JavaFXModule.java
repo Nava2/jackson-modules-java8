@@ -1,11 +1,12 @@
 package com.fasterxml.jackson.datatype.javafx;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.javafx.des.JavaFXDeserializers;
 import com.fasterxml.jackson.datatype.javafx.ser.JavaFXSerializers;
+import javafx.beans.property.ObjectPropertyBase;
 import javafx.beans.property.ReadOnlyProperty;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.ObservableList;
 import javafx.collections.ObservableMap;
 
@@ -22,6 +23,9 @@ public class JavaFXModule extends SimpleModule {
     @Override
     public void setupModule(SetupContext context) {
 
+        context.setMixInAnnotations(ObservableValue.class, ObservableValueMixin.class);
+        context.setMixInAnnotations(ObjectPropertyBase.class, ObjectPropertyBaseMixin.class);
+        
         context.setMixInAnnotations(ReadOnlyProperty.class, ReadOnlyPropertyMixin.class);
 
         context.addSerializers(new JavaFXSerializers());
@@ -29,8 +33,9 @@ public class JavaFXModule extends SimpleModule {
         context.addTypeModifier(new JavaFXTypeModifier());
 
         context.insertAnnotationIntrospector(new JavaFXAnnotationIntrospector());
-        context.setClassIntrospector(new JavaFXClassIntrospector());
     }
+
+
 
     abstract class ReadOnlyPropertyMixin<E> {
 
@@ -42,6 +47,23 @@ public class JavaFXModule extends SimpleModule {
 
         @JsonProperty
         abstract public E getValue();
+    }
+
+    @JsonIdentityInfo(generator = ObjectIdGenerators.IntSequenceGenerator.class)
+    abstract class ObservableValueMixin<V> {
+
+    }
+
+    abstract class ObjectPropertyBaseMixin<V> extends ObservableValueMixin<V> {
+
+        @JsonProperty(value = "binding", access = JsonProperty.Access.READ_ONLY)
+        @JsonIdentityReference(alwaysAsId = true)
+        private ObservableValue<? extends V> observable;
+
+        @JsonProperty(value = "binding")
+        @JsonIdentityReference(alwaysAsId = true)
+        public abstract void bind(final ObservableValue<? extends V> newObservable);
+
     }
 
     abstract class ReadOnlyListPropertyMixin<E> extends ReadOnlyPropertyMixin<ObservableList<E>> {

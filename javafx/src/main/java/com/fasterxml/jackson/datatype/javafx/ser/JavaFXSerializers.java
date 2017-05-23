@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.SerializationConfig;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.ser.Serializers;
 import com.fasterxml.jackson.databind.type.ReferenceType;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyProperty;
 import javafx.beans.value.ObservableValue;
 
@@ -22,6 +23,9 @@ public class JavaFXSerializers extends Serializers.Base {
                                                      TypeSerializer contentTypeSerializer,
                                                      JsonSerializer<Object> contentValueSerializer) {
         if (type.isTypeOrSubTypeOf(ObservableValue.class)) {
+            if (type.isTypeOrSubTypeOf(ObjectProperty.class)) {
+                return new ObjectPropertySerializer<>(type, contentTypeSerializer, contentValueSerializer);
+            }
             if (type.isTypeOrSubTypeOf(ReadOnlyProperty.class)) {
                 return new ReadOnlyPropertySerializer<>(type, contentTypeSerializer, contentValueSerializer);
             }
